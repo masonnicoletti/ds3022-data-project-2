@@ -1,0 +1,11 @@
+{"timestamp":"2025-10-29T19:23:34.892758","level":"info","event":"DAG bundles loaded: dags-folder, example_dags","logger":"airflow.dag_processing.bundles.manager.DagBundlesManager"}
+{"timestamp":"2025-10-29T19:23:34.893032","level":"info","event":"Filling up the DagBag from /opt/airflow/dags/airflow-dag.py","logger":"airflow.models.dagbag.DagBag"}
+{"timestamp":"2025-10-29T19:23:34.944184Z","level":"info","event":"Task instance is in running state","chan":"stdout","logger":"task"}
+{"timestamp":"2025-10-29T19:23:34.944581Z","level":"info","event":" Previous state of the Task instance: TaskInstanceState.QUEUED","chan":"stdout","logger":"task"}
+{"timestamp":"2025-10-29T19:23:34.944673Z","level":"info","event":"Current task name:get_queue_url","chan":"stdout","logger":"task"}
+{"timestamp":"2025-10-29T19:23:34.945224Z","level":"info","event":"Dag name:dp2_quote_assembler","chan":"stdout","logger":"task"}
+{"timestamp":"2025-10-29T19:23:36.061616","level":"info","event":"Done. Returned value was: https://sqs.us-east-1.amazonaws.com/440848399208/cxx6sw","logger":"airflow.task.operators.airflow.providers.standard.decorators.python._PythonDecoratedOperator"}
+{"timestamp":"2025-10-29T19:23:36.061799","level":"info","event":"Pushing xcom","ti":"RuntimeTaskInstance(id=UUID('019a316c-eae8-71e9-a5b5-7c249019f0ba'), task_id='get_queue_url', dag_id='dp2_quote_assembler', run_id='manual__2025-10-29T19:23:32.954786+00:00', try_number=1, map_index=-1, hostname='58e8a993ecd1', context_carrier={}, task=<Task(_PythonDecoratedOperator): get_queue_url>, bundle_instance=LocalDagBundle(name=dags-folder), max_tries=0, start_date=datetime.datetime(2025, 10, 29, 19, 23, 34, 673388, tzinfo=TzInfo(UTC)), end_date=None, state=<TaskInstanceState.RUNNING: 'running'>, is_mapped=False, rendered_map_index=None)","logger":"task"}
+{"timestamp":"2025-10-29T19:23:36.085311Z","level":"info","event":"Task instance in success state","chan":"stdout","logger":"task"}
+{"timestamp":"2025-10-29T19:23:36.085495Z","level":"info","event":" Previous state of the Task instance: TaskInstanceState.RUNNING","chan":"stdout","logger":"task"}
+{"timestamp":"2025-10-29T19:23:36.085648Z","level":"info","event":"Task operator:<Task(_PythonDecoratedOperator): get_queue_url>","chan":"stdout","logger":"task"}

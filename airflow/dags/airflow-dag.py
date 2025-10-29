@@ -3,6 +3,7 @@ from airflow.decorators import dag, task
 from airflow.operators.python import PythonOperator
 import datetime
 import requests
+import boto3
 
 # Declare global variables
 api_endpoint = "https://j9y2xa0vx0.execute-api.us-east-1.amazonaws.com/api/scatter/"
@@ -40,26 +41,72 @@ def quote_assembler():
             raise e
         
         return queue_url
+    
+    @task
+    def get_queue_attributes(queue_url):
+        #logger = get_run_logger()
+        try:
+            # Get queue attributes
+            sqs = boto3.client('sqs', region_name='us-east-1')
+            attributes = sqs.get_queue_attributes(
+                QueueUrl=queue_url,
+                AttributeNames=['All']
+                )
+        
+        except Exception as e:
+            #logger.error(f"Error obtaining queue attributes: {e}")
+            raise e
+        
+        return attributes
+    
+    @task
+    def parse_queue_attributes(attributes):
+        #logger = get_run_logger()
+        try:
+            # Parse response
+            num_messages = int(attributes["Attributes"]['ApproximateNumberOfMessages'])
+            delayed_messages = int(attributes["Attributes"]["ApproximateNumberOfMessagesDelayed"])
+            messages_not_visible = int(attributes["Attributes"]["ApproximateNumberOfMessagesNotVisible"])
+            total_messages = num_messages + delayed_messages + messages_not_visible
+        
+        except Exception as e:
+            #logger.error(f"Error parsing queue attributes: {e}")
+            raise e
+        
+        return total_messages, num_messages
+
+    @task
+    def receive_message(queue_url):
+        #logger = get_run_logger()
+        try:
+            # Get message and attributes from SQS queue
+            sqs = boto3.client('sqs', region_name='us-east-1')
+            message = sqs.receive_message(
+                QueueUrl=queue_url,
+                MessageSystemAttributeNames=['All'],
+                MaxNumberOfMessages=1,
+                VisibilityTimeout=60,
+                MessageAttributeNames=['All'],
+                WaitTimeSeconds=10
+                )
+            
+            # Error handling in case of null reply to receive_message
+            if message is None:
+                #logger.error("No messages available in queue")
+                return None
+
+        except Exception as e:
+            #logger.error(f"Error retrieving SQS message: {e}")
+            raise e
+        
+        return message
 
 
     api_url = create_api_url(api_endpoint, computing_id)
-    get_queue_url(api_url)
-    
-    
-    '''
-    create_url = PythonOperator(
-        task_id="create_api_url",
-        python_callable=create_api_url,
-        op_args=[api_endpoint, computing_id]
-    )
-
-    get_queue = PythonOperator(
-       task_id="get_queue_url",
-        python_callable=get_queue_url
-    )
-
-    create_url >> get_queue
-    '''
+    queue_url = get_queue_url(api_url)
+    attributes = get_queue_attributes(queue_url)
+    total_messages, num_messages = parse_queue_attributes(attributes)
+    message = receive_message(queue_url)
 
 
 quote_assembler()
