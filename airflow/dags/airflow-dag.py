@@ -7,7 +7,7 @@ api_endpoint = "https://j9y2xa0vx0.execute-api.us-east-1.amazonaws.com/api/scatt
 computing_id = "cxx6sw"
 submission_queue = "https://sqs.us-east-1.amazonaws.com/440848399208/dp2-submit"
 submission_message = "Data Project 2 Submission"
-platform = "prefect"
+platform = "airflow"
 
 def create_api_url(api_endpoint, computing_id):
     # Create API Endpoint URL
@@ -16,6 +16,7 @@ def create_api_url(api_endpoint, computing_id):
 
 def get_queue_url(api_url):
     #logger = get_run_logger()
+    api_url = ti.xcom_pull(task_ids="create_api_url")
     try:
         # Request Queue URL
         payload = requests.post(api_url).json()
@@ -44,8 +45,7 @@ with DAG(
 
     get_queue = PythonOperator(
        task_id="get_queue_url",
-        python_callable=get_queue_url,
-        op_args=[api_endpoint, computing_id] 
+        python_callable=get_queue_url
     )
     
     create_url >> get_queue
