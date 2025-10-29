@@ -50,7 +50,6 @@ def get_queue_attributes(queue_url):
             QueueUrl=queue_url,
             AttributeNames=['All']
             )
-        logger.info("Accessed SQS queue attributes")
     
     except Exception as e:
         logger.error(f"Error obtaining queue attributes: {e}")
@@ -168,6 +167,7 @@ def assemble_quote(messages_df):
         quote = ""
         for word in messages_df['word']:
             quote += word + " "
+        print((f'Quote: "{quote}"'))
         logger.info(f'Quote: "{quote}"')
     
     except Exception as e:
@@ -242,11 +242,12 @@ def api_request(api_endpoint, computing_id):
 
 @flow 
 def monitor_queue(queue_url):
-    logger = get_run_logger
+    logger = get_run_logger()
     start_time = time.time()
     
     while True:
         attributes = get_queue_attributes(queue_url)
+        logger.info("Accessed SQS queue attributes")
         total_messages, num_messages = parse_queue_attributes(attributes)
         logger.info(f"Number of Messages Received: {num_messages}/{total_messages}")
         total_time = time.time() - start_time
@@ -264,12 +265,15 @@ def monitor_queue(queue_url):
 
 @flow
 def collect_messages(queue_url, total_messages):
+    logger = get_run_logger()
     messages_list = []
     while len(messages_list) < total_messages:
         message = receive_message(queue_url)
         message_entry, receipt_handle = parse_message(message)
         messages_list.append(message_entry)
         delete_message(queue_url, receipt_handle)
+    logger.info("All SQS messages received")
+    logger.info("All SQS messages deleted")
 
     messages_df = save_message(messages_list)
 
