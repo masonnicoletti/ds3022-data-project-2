@@ -5,3 +5,12 @@
 # Ignore __pycache__
 __pycache__
 __pycache__/
+
+# Ignore prefect output and other data files
+messages.csv
+*.csv
+
+# Ignore test scripts
+test_scripts/
+
+# Ignore airflow folder
