@@ -1,12 +1,12 @@
 # prefect flow goes here
-from prefect import task, flow
-from prefect.logging import get_run_logger
 import os
-from prefect.types import TaskRetryDelaySeconds
 import requests
 import boto3
 import time
 import pandas as pd
+from prefect import task, flow
+from prefect.logging import get_run_logger
+from prefect.types import TaskRetryDelaySeconds
 
 
 # Declare global variables
@@ -26,124 +26,163 @@ def create_api_url(api_endpoint, computing_id):
 
 @task
 def get_queue_url(api_url):
-    # Request Queue URL
+    logger = get_run_logger()
     try:
+        # Request Queue URL
         payload = requests.post(api_url).json()
         queue_url = payload['sqs_url']
+        logger.info("Retrieved SQS queue URL")
+    
     except Exception as e:
-        print(f"Error retrieving queue URL: {e}")
+        logger.error(f"Error retrieving SQS queue URL: {e}")
+        raise e
     
     return queue_url
 
 
-@task
+@task(retries=5, retry_delay_seconds=10)
 def get_queue_attributes(queue_url):
-    # Create SQS Connection
-    sqs = boto3.client('sqs')
-    
-    # Get queue attributes
+    logger = get_run_logger()
     try:
+        # Get queue attributes
+        sqs = boto3.client('sqs')
         attributes = sqs.get_queue_attributes(
             QueueUrl=queue_url,
             AttributeNames=['All']
             )
+        logger.info("Accessed SQS queue attributes")
+    
     except Exception as e:
-        print(f"An error occurred: {e}")
+        logger.error(f"Error obtaining queue attributes: {e}")
+        raise e
     
     return attributes
 
 
 @task
 def parse_queue_attributes(attributes):
-
-    # Parse response
-    num_messages = int(attributes["Attributes"]['ApproximateNumberOfMessages'])
-    delayed_messages = int(attributes["Attributes"]["ApproximateNumberOfMessagesDelayed"])
-    messages_not_visible = int(attributes["Attributes"]["ApproximateNumberOfMessagesNotVisible"])
-    total_messages = num_messages + delayed_messages + messages_not_visible
+    logger = get_run_logger()
+    try:
+        # Parse response
+        num_messages = int(attributes["Attributes"]['ApproximateNumberOfMessages'])
+        delayed_messages = int(attributes["Attributes"]["ApproximateNumberOfMessagesDelayed"])
+        messages_not_visible = int(attributes["Attributes"]["ApproximateNumberOfMessagesNotVisible"])
+        total_messages = num_messages + delayed_messages + messages_not_visible
+    
+    except Exception as e:
+        logger.error(f"Error parsing queue attributes: {e}")
+        raise e
     
     return total_messages, num_messages
 
 
-@task
+@task(retries=5, retry_delay_seconds=10)
 def receive_message(queue_url):
-    
-    # Create SQS Connection
-    sqs = boto3.client('sqs') 
-    
-    # Get message and attributes from SQS queue
-    message = sqs.receive_message(
-        QueueUrl=queue_url,
-        MessageSystemAttributeNames=['All'],
-        MaxNumberOfMessages=1,
-        VisibilityTimeout=60,
-        MessageAttributeNames=['All'],
-        WaitTimeSeconds=10
-        )
+    logger = get_run_logger()
+    try:
+        # Get message and attributes from SQS queue
+        sqs = boto3.client('sqs')
+        message = sqs.receive_message(
+            QueueUrl=queue_url,
+            MessageSystemAttributeNames=['All'],
+            MaxNumberOfMessages=1,
+            VisibilityTimeout=60,
+            MessageAttributeNames=['All'],
+            WaitTimeSeconds=10
+            )
+        
+        # Error handling in case of null reply to receive_message
+        if message is None:
+            logger.error("No messages available in queue")
+            return None
+
+    except Exception as e:
+        logger.error(f"Error retrieving SQS message: {e}")
+        raise e
     
     return message
 
 
 @task
 def parse_message(message):
+    logger = get_run_logger()
+    try:
+        # Extract message information and append to list
+        order_no = int(message['Messages'][0]['MessageAttributes']['order_no']['StringValue'])
+        word = message['Messages'][0]['MessageAttributes']['word']['StringValue']
+        message_entry = {"order_no": order_no, "word": word}
+
+        # Extract receipt handle
+        receipt_handle = message['Messages'][0]['ReceiptHandle']
     
-    # Extract message information and append to list
-    order_no = int(message['Messages'][0]['MessageAttributes']['order_no']['StringValue'])
-    word = message['Messages'][0]['MessageAttributes']['word']['StringValue']
-    message_entry = {"order_no": order_no, "word": word} 
-
-    # Extract receipt handle
-    receipt_handle = message['Messages'][0]['ReceiptHandle']
-
+    except Exception as e:
+        logger.error(f"Error parsing SQS message: {e}")
+        raise e
+    
     return message_entry, receipt_handle
 
 
-@task
+@task(retries=5, retry_delay_seconds=10)
 def delete_message(queue_url, receipt_handle):
+    logger = get_run_logger()
+    try:
+        # Delete message
+        sqs = boto3.client('sqs')
+        deletion = sqs.delete_message(
+            QueueUrl=queue_url,
+            ReceiptHandle=receipt_handle
+        )
     
-    # Create SQS Connection
-    sqs = boto3.client('sqs')
+    except Exception as e:
+        logger.error(f"Error deleting SQS message: {e}")
+        raise e
 
-    # Delete message
-    deletion = sqs.delete_message(
-        QueueUrl=queue_url,
-        ReceiptHandle=receipt_handle
-    )
 
 
 @task
 def save_message(messages_list):
+    logger = get_run_logger()
+    try:
+        # Convert messages to pandas dataframe
+        messages_df = pd.DataFrame(messages_list)
+
+        # Sort entries by order number
+        messages_df = messages_df.sort_values(by="order_no", ascending=True)
+
+        # Save as  csv file
+        messages_df.to_csv('messages.csv', index=False)
+        logger.info("Message saved as csv file locally")
     
-    # Convert messages to pandas dataframe
-    messages_df = pd.DataFrame(messages_list)
-
-    # Sort entries by order number
-    messages_df = messages_df.sort_values(by="order_no", ascending=True)
-
-    # Save as  csv file
-    messages_df.to_csv('messages.csv', index=False)
+    except Exception as e:
+        logger.error(f"Error saving SQS messages as file: {e}")
+        raise e
 
     return messages_df
 
 
 @task
 def assemble_quote(messages_df):
-    # Loop through words and concatenate
-    quote = ""
-    for word in messages_df['word']:
-        quote += word + " "
-    print(quote)
+    logger = get_run_logger()
+    try:
+        # Loop through words and concatenate
+        quote = ""
+        for word in messages_df['word']:
+            quote += word + " "
+        logger.info(f'Quote: "{quote}"')
+    
+    except Exception as e:
+        logger.error(f"Error assembling SQS messages into quote: {e}")
+        raise e 
 
     return quote
 
 
-@task
+@task(retries=5, retry_delay_seconds=10)
 def send_solution(submission_queue, submission_message, quote, computing_id, platform):
-    # Create SQS Connection
-    sqs = boto3.client('sqs')
-
-    # Send message to submission queue
+    logger = get_run_logger()
     try:
+        # Send message to submission queue
+        sqs = boto3.client('sqs')
         send_response = sqs.send_message(
             QueueUrl=submission_queue,
             MessageBody=submission_message,
@@ -162,23 +201,33 @@ def send_solution(submission_queue, submission_message, quote, computing_id, pla
                 }
             }
         )
+        logger.info("SQS message sent to submission queue")
+    
     except Exception as e:
-        print(f"Error sending message: {e}")
+        logger.error(f"Error sending SQS message: {e}")
+        raise e
     
     return send_response
 
 
 @task 
 def parse_send_response(send_response):
-    # Parse metadata of sent message
-    http_status_code = send_response['ResponseMetadata']['HTTPStatusCode']
-    time_sent = send_response['ResponseMetadata']['HTTPHeaders']['date']
+    logger = get_run_logger()
+    try:
+        # Parse metadata of sent message
+        http_status_code = send_response['ResponseMetadata']['HTTPStatusCode']
+        time_sent = send_response['ResponseMetadata']['HTTPHeaders']['date']
+        
+        # Confirm successful send
+        if http_status_code == 200:
+            logger.info("Message received by submission queue")
+        
+        # Log time sent
+        logger.info(f"Submission Time: {time_sent}")
     
-    # Confirm successful send
-    if http_status_code == 200:
-        print("Message Received")
-    # Log time sent
-    print(f"Submission Time: {time_sent}")
+    except Exception as e:
+        logger.error(f"Error parsing SQS sent message response: {e}")
+        raise e
 
 
 
@@ -193,12 +242,13 @@ def api_request(api_endpoint, computing_id):
 
 @flow 
 def monitor_queue(queue_url):
+    logger = get_run_logger
     start_time = time.time()
     
     while True:
         attributes = get_queue_attributes(queue_url)
         total_messages, num_messages = parse_queue_attributes(attributes)
-        print(f"Number of Messages Received: {num_messages}/{total_messages}")
+        logger.info(f"Number of Messages Received: {num_messages}/{total_messages}")
         total_time = time.time() - start_time
 
         if num_messages == total_messages:
