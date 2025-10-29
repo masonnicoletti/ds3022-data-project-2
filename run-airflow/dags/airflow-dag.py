@@ -47,8 +47,10 @@ def quote_assembler():
             raise e
         
         return queue_url
-
-
+    
     # Define dependencies
     api_url = create_api_url(api_endpoint, computing_id)
     queue_url = get_queue_url(api_url)
+
+
+quote_assembler()
