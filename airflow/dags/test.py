@@ -9,7 +9,7 @@ def test():
 with DAG(
     dag_id='test_dag',
     start_date=datetime.datetime(2025, 10, 29),
-    schedule_interval="@daily"
+    schedule="@hourly"
 ) as dag:
     test_dag = PythonOperator(
         task_id="test",
