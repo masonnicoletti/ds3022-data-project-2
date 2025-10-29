@@ -2,6 +2,7 @@ from airflow import DAG
 from airflow.decorators import dag, task
 from airflow.operators.python import PythonOperator
 import datetime
+import requests
 
 # Declare global variables
 api_endpoint = "https://j9y2xa0vx0.execute-api.us-east-1.amazonaws.com/api/scatter/"
@@ -16,6 +17,7 @@ platform = "airflow"
     schedule="@hourly",
     catchup=False
 )
+
 def quote_assembler():
 
     @task
