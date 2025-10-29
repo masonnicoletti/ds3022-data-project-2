@@ -14,7 +14,7 @@ def create_api_url(api_endpoint, computing_id):
     api_url = api_endpoint + computing_id
     return api_url
 
-def get_queue_url(api_url):
+def get_queue_url(ti):
     #logger = get_run_logger()
     api_url = ti.xcom_pull(task_ids="create_api_url")
     try:
