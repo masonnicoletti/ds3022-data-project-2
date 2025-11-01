@@ -14,3 +14,5 @@ messages.csv
 test_scripts/
 
 # Ignore airflow folder
+/airflow
+/airflow/*

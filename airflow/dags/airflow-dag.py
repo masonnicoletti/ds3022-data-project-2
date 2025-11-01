@@ -1,6 +1,9 @@
+# airflow DAG goes here
 from airflow import DAG
 from airflow.decorators import dag, task
 from airflow.operators.python import PythonOperator
+from airflow.models import Variable
+from airflow.providers.amazon.aws.hooks.base_aws import AwsBaseHook
 import datetime
 import time
 import requests
@@ -38,6 +41,7 @@ def quote_assembler():
             # Request Queue URL
             payload = requests.post(api_url).json()
             queue_url = payload['sqs_url']
+            print(f"API Response: {payload}")
             #logger.info("Retrieved SQS queue URL")
         
         except Exception as e:
@@ -63,7 +67,6 @@ def quote_assembler():
         
         return attributes
     
-    '''
     @task
     def parse_queue_attributes(attributes):
         #logger = get_run_logger()
@@ -228,15 +231,14 @@ def quote_assembler():
         except Exception as e:
             #logger.error(f"Error parsing SQS sent message response: {e}")
             raise e
-    '''
-    
 
+
+    
     # Define dependencies
     api_url = create_api_url(api_endpoint, computing_id)
     queue_url = get_queue_url(api_url)
     attributes = get_queue_attributes(queue_url)
 
-    '''
     while True:
         start_time = time.time()
         attributes = get_queue_attributes(queue_url)
@@ -257,7 +259,6 @@ def quote_assembler():
     quote = assemble_quote(message_df)
     send_response = send_solution(submission_queue, submission_message, quote, computing_id, platform)
     parse_send_response(send_response)
-    '''
 
 
 quote_assembler()

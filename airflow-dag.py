@@ -65,7 +65,6 @@ def quote_assembler():
         
         return attributes
     
-    '''
     @task
     def parse_queue_attributes(attributes):
         #logger = get_run_logger()
@@ -230,7 +229,7 @@ def quote_assembler():
         except Exception as e:
             #logger.error(f"Error parsing SQS sent message response: {e}")
             raise e
-    '''
+    
     
 
     # Define dependencies
@@ -238,7 +237,6 @@ def quote_assembler():
     queue_url = get_queue_url(api_url)
     attributes = get_queue_attributes(queue_url)
 
-    '''
     while True:
         start_time = time.time()
         attributes = get_queue_attributes(queue_url)
@@ -259,7 +257,6 @@ def quote_assembler():
     quote = assemble_quote(message_df)
     send_response = send_solution(submission_queue, submission_message, quote, computing_id, platform)
     parse_send_response(send_response)
-    '''
 
 
 quote_assembler()
